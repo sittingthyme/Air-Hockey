@@ -15,6 +15,8 @@ def onAppStart(app):
 
     app.aiX = 300
     app.aiY = 200
+    app.aiSpeed = 10 
+    app.aiTargetX = app.aiX 
 
     app.puckX = 300
     app.puckY = 400
@@ -31,7 +33,7 @@ def onAppStart(app):
     app.goalWidth = 200
     app.goalHeight = 20
 
-    app.stepsPerSecond = 100
+    app.stepsPerSecond = 200
 
     app.gameEnd = False
 
@@ -62,8 +64,12 @@ def redrawAll(app):
         drawLine(10, 400, 590, 400, fill='cyan')
         drawCircle(300, 400, 75, fill=None, border='cyan')
         drawCircle(app.userX, app.userY, 50, fill='blue')
+
         drawCircle(app.userX, app.userY, 25, fill='blue', border='black')
         drawCircle(app.puckX, app.puckY, app.puckRadius, fill='red')
+
+        drawCircle(app.aiX, app.aiY, 50, fill='green')
+        drawCircle(app.aiX, app.aiY, 25, fill='green', border='black')
         if app.pause:
             drawLabel('SCORE!!!', 300, 200, size=80, fill='white')
             drawLabel(f'Game resumes in {str(app.counter)}', 300, 400, size=50, fill='white')
@@ -85,14 +91,14 @@ def onStep(app):
         app.counter -= 1
         if app.counter == 0:
             app.pause = False
-            app.stepsPerSecond = 100
+            app.stepsPerSecond = 200
             app.counter = 3
     
     if app.start:
         app.counter -= 1
         if app.counter == 0:
             app.start = False
-            app.stepsPerSecond = 100
+            app.stepsPerSecond = 200
             app.counter = 3
             
 
@@ -101,9 +107,11 @@ def onStep(app):
         dx = app.targetX - app.userX
         dy = app.targetY - app.userY
         app.userSpeed = math.sqrt(dx**2 + dy**2) * 0.2
-        
         app.userX += dx * 0.5
         app.userY += dy * 0.5
+
+        moveAIPaddle(app)
+        checkAICollision(app)
 
         # Update puck position
         app.puckX += app.puckVelocityX
@@ -172,6 +180,44 @@ def startGame(app):
     app.userY = 600
     app.start = True
     app.stepsPerSecond = 1
+
+def moveAIPaddle(app):
+    # AI follows the puck's X position with some reaction time
+    if app.puckY <= app.height / 2:  # Only react when the puck is on AI's side
+        app.aiTargetX = app.puckX
+        app.aiTargetY = app.puckY
+    else:
+        app.aiTargetX = app.puckX
+        app.aiTargetY = 150
+    # Move AI paddle towards its target position
+
+    if app.puckY == app.aiY:
+         app.aiTargetY = app.puckY - 25
+
+    if app.aiX < app.aiTargetX:
+        app.aiX += min(app.aiSpeed, app.aiTargetX - app.aiX)  # Move right
+    elif app.aiX > app.aiTargetX:
+        app.aiX -= min(app.aiSpeed, app.aiX - app.aiTargetX)  # Move left
+
+    if app.aiY < app.aiTargetY:
+        app.aiY += min(app.aiSpeed, app.aiTargetY - app.aiY)
+    elif app.aiY > app.aiTargetY:
+        app.aiY -= min(app.aiSpeed, app.aiY - app.aiTargetY)
+    # Keep AI paddle within bounds
+    app.aiX = max(50, min(550, app.aiX))  # Adjust based on paddle size
+    app.aiX = max(50, min(350, app.aiY))
+
+# Handle collisions between AI paddle and puck
+def checkAICollision(app):
+    distance = math.sqrt((app.aiX - app.puckX)**2 + (app.aiY - app.puckY)**2)
+    if distance < 75:  # Collision threshold
+        dx = app.puckX - app.aiX
+        dy = app.puckY - app.aiY
+        magnitude = math.sqrt(dx**2 + dy**2)
+        if magnitude != 0:
+            app.puckVelocityX = (dx / magnitude) * app.aiSpeed * 2
+            app.puckVelocityY = (dy / magnitude) * app.aiSpeed * 2
+
 
 def main():
     runApp()
