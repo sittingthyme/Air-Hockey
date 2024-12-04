@@ -50,14 +50,22 @@ def onAppStart(app):
 
     app.lastHitTime = time.time()
 
+    app.classic = False
+    app.squareMode = False
+    app.twoPlayer = False
+
 def redrawAll(app):
     if not app.gameStart:
         drawLabel("Single Player Air Hockey", 300, 200, size=40)
         drawLabel('Easy', 100, 500, size=40, bold=app.easySelected)
         drawLabel('Medium', 300, 500, size=40, bold=app.medSelected)
         drawLabel('Hard', 500, 500, size=40, bold=app.hardSelected)
-        drawLabel('Start', 300, 635, size=40)
+        drawLabel('Classic', 300, 635, size=30)
         drawRect(225, 600, 150, 75, fill=None, border='black')
+        drawLabel('Square Mode', 125, 635, size=20)
+        drawRect(50, 600, 150, 75, fill=None, border='black')
+        drawLabel('1 vs 2', 475, 635, size=30)
+        drawRect(400, 600, 150, 75, fill=None, border='black')
     elif app.gameEnd:
         if app.userScore > app.aiScore:
             drawLabel('You Won!', 300, 200, size=40)
@@ -66,6 +74,7 @@ def redrawAll(app):
         drawLabel('Play Again', 300, 450, size=20)
         drawRect(225, 415, 150, 75, fill=None, border='black')
     else:
+        # if app.classic:
         drawRect(0, 0, 800, 800)
         drawLabel(str(app.userScore), 560, 440, size=50, fill='white')
         drawLabel(str(app.aiScore), 560, 360, size=50, fill='white')
@@ -93,32 +102,30 @@ def redrawAll(app):
 def onMousePress(app, mouseX, mouseY):
     if not app.gameStart:
         if (app.easySelected or app.medSelected or app.hardSelected) and (225 <= mouseX <= 375) and (600 <= mouseY <= 675):
-            if app.easySelected:
-                app.aiSpeed = 4
-                app.aiMovementSpeed = 4
-            elif app.medSelected:
-                app.aiSpeed = 7
-                app.aiMovementSpeed = 5
-            else:
-                app.aiSpeed = 10
-                app.aiMovementSpeed = 6
             app.gameStart = True
             startGame(app)
         if (75 <= mouseX <= 125) & (495 <= mouseY <= 505):
             app.easySelected = True
             app.medSelected = False
             app.hardSelected = False
+            app.aiSpeed = 4
+            app.aiMovementSpeed = 4
         if (275 <= mouseX <= 325) & (495 <= mouseY <= 505):
             app.easySelected = False
             app.medSelected = True
             app.hardSelected = False
+            app.aiSpeed = 7
+            app.aiMovementSpeed = 5
         if (475 <= mouseX <= 525) & (495 <= mouseY <= 505):
             app.easySelected = False
             app.medSelected = False
             app.hardSelected = True
+            app.aiSpeed = 10
+            app.aiMovementSpeed = 6
         
     if app.gameEnd and (225 <= mouseX <= 375) and (415 <= mouseY <= 490):
         app.gameStart = False
+        app.gameEnd = False
         startGame(app)
         
 def onMouseMove(app, mouseX, mouseY):
@@ -230,7 +237,7 @@ def moveAIPaddle(app):
     aiSpeed = 6  
     
     if app.puckY <= app.height / 2:  # React only when the puck is on AI's side
-        # Add momentum prediction
+        # Add momentum prediction Amazon Q {
         predictedPuckX = app.puckX + app.puckVelocityX * (
             (app.aiY - app.puckY) / app.puckVelocityY if app.puckVelocityY != 0 else 0
         )
@@ -240,7 +247,7 @@ def moveAIPaddle(app):
             predictedPuckX += app.puckVelocityX * 2
         
         predictedPuckX = max(50, min(550, predictedPuckX))  # Stay within bounds
-        
+        # }
         if not(predictedPuckX < 25 or predictedPuckX > 575):
             app.aiTargetX = predictedPuckX
             # More aggressive Y targeting
@@ -278,58 +285,110 @@ def moveAIPaddle(app):
 
 
 
-
+#Amazon Q{
 def checkAICollision(app):
+    # Calculate distance between AI paddle and puck
     distance = math.sqrt((app.aiX - app.puckX)**2 + (app.aiY - app.puckY)**2)
-    if distance < 75 and app.lastHitTime + 0.1 < time.time():
-        # Calculate the angle of collision
-        relativeX = app.puckX - app.aiX
-        relativeY = app.puckY - app.aiY
-        
-        # Calculate angle between puck and paddle center
-        collisionAngle = math.atan2(relativeY, relativeX)
-        
-        # Determine if it's a side hit or front hit
-        # Convert angle to degrees for easier comparison
-        angleDegrees = math.degrees(collisionAngle)
-        
-        if -150 <= angleDegrees <= -30 or 30 <= angleDegrees <= 150:
-            # Side hit - bounce based on collision angle
-            speed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
-            if speed == 0:
-                speed = app.aiSpeed
-                
-            # Calculate new velocity based on collision angle
-            app.puckVelocityX = math.cos(collisionAngle) * speed * 1.2
-            app.puckVelocityY = math.sin(collisionAngle) * speed * 1.2
-        else:
-            # Front hit - aim towards goal
-            if app.puckY <= app.height / 2:
-                # Defensive shot - aim for side walls
-                goalCenterX = random.choice([50, app.width - 50])
-            else:
-                # Offensive shot - aim for goal
-                goalCenterX = app.width / 2 + random.uniform(-50, 50)
-            
-            goalCenterY = app.height - app.goalHeight
-            
-            dx = goalCenterX - app.puckX
-            dy = goalCenterY - app.puckY
-            
-            magnitude = math.sqrt(dx**2 + dy**2)
-            if magnitude != 0:
-                dx /= magnitude
-                dy /= magnitude
-            
-            # Vary speed based on distance from paddle center
-            hitAccuracy = 1 - (distance / 75)  # 1 at center, 0 at edge
-            speed = app.aiSpeed * (3 + hitAccuracy)
-            
-            app.puckVelocityX = dx * speed
-            app.puckVelocityY = dy * speed
-            
-        app.lastHitTime = time.time()
+    if distance < 75:  # Collision threshold (paddle radius + puck radius)
+        # Calculate collision normal
+        collisionNormalX = (app.puckX - app.aiX) / distance
+        collisionNormalY = (app.puckY - app.aiY) / distance
 
+        currentSpeed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
+
+        minSpeed = 8
+
+        if currentSpeed < 1 and app.puckX == 300 and app.puckY == 400:
+            app.puckVelocityX = collisionNormalX * minSpeed
+            app.puckVelocityY = collisionNormalY * minSpeed
+        else:
+        # Reflect puck velocity based on collision normal
+            dotProduct = (app.puckVelocityX * collisionNormalX +
+                        app.puckVelocityY * collisionNormalY)
+            reflectedVelocityX = app.puckVelocityX - 2 * dotProduct * collisionNormalX
+            reflectedVelocityY = app.puckVelocityY - 2 * dotProduct * collisionNormalY
+
+            speedMultiplier = 1.2
+            # newSpeed = math.sqrt(reflectedVelocityX**2 + reflectedVelocityY**2) * speedMultiplier
+            # if newSpeed > minSpeed:
+            #     speedMultiplier = minSpeed / newSpeed
+            app.puckVelocityX = reflectedVelocityX * speedMultiplier
+            app.puckVelocityY = reflectedVelocityY * speedMultiplier
+
+        # Offset puck slightly to prevent overlap after collision
+        overlap = 75 - distance
+        app.puckX += collisionNormalX * overlap * 0.5
+        app.puckY += collisionNormalY * overlap * 0.5
+
+    # distance = math.sqrt((app.aiX - app.puckX)**2 + (app.aiY - app.puckY)**2)
+    # if distance < 75 and app.lastHitTime + 0.1 < time.time():
+    #     # Calculate the angle of collision
+    #     relativeX = app.puckX - app.aiX
+    #     relativeY = app.puckY - app.aiY
+        
+    #     # Calculate angle between puck and paddle center
+    #     collisionAngle = math.atan2(relativeY, relativeX)
+    #     # Determine if it's a side hit or front hit
+    #     # Convert angle to degrees for easier comparison
+    #     angleDegrees = math.degrees(collisionAngle)
+    #     print(angleDegrees)
+    #     if angleDegrees == 0 or angleDegrees == 180:
+    #         speed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
+    #         app.puckVelocityX = math.cos(random.randint(10, 30)) * speed * 1.2
+    #         app.puckVelocityY = math.sin(random.randint(10, 30)) * speed * 1.2
+    #         # backOff(app)
+    #     # elif 0 < angleDegrees < 180:
+    #     #     dx = app.puckX - app.userX
+    #     #     dy = app.puckY - app.userY
+    #     #     magnitude = math.sqrt(dx**2 + dy**2)
+    #     #     if magnitude != 0:
+    #     #         app.puckVelocityX = (dx / magnitude) * app.aiSpeed * 3 
+    #     #         app.puckVelocityY = (dy / magnitude) * app.aiSpeed * 3
+    #     #     # backOff(app) 
+    #     elif -45 <= angleDegrees <= 45 or 135 <= angleDegrees <= 225:
+    #         # Side hit - bounce based on collision angle
+    #         print('Hit the side')
+    #         speed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
+    #         if speed == 0:
+    #             speed = app.aiSpeed
+                
+    #         # Calculate new velocity based on collision angle
+    #         app.puckVelocityX = math.cos(random.randint(10, 30)) * speed * 1.2
+    #         app.puckVelocityY = math.sin(random.randint(10, 30)) * speed * 1.2
+    #         # backOff(app)
+    #     else:
+    #         #Front hit - aim towards goal
+    #         if app.puckY <= app.height / 2:
+    #             goalCenterX = app.width / 2 + random.uniform(-50, 50)
+            
+    #         goalCenterY = app.height - app.goalHeight
+            
+    #         dx = goalCenterX - app.puckX
+    #         dy = goalCenterY - app.puckY
+            
+    #         magnitude = math.sqrt(dx**2 + dy**2)
+    #         if magnitude != 0:
+    #             dx /= magnitude
+    #             dy /= magnitude
+            
+    #         # Vary speed based on distance from paddle center
+    #         hitAccuracy = 1 - (distance / 75)  # 1 at center, 0 at edge
+    #         speed = app.aiSpeed * (3 + hitAccuracy)
+            
+    #         app.puckVelocityX = dx * speed
+    #         app.puckVelocityY = dy * speed
+    #     #     dx = app.puckX - app.userX
+    #     #     dy = app.puckY - app.userY
+    #     #     magnitude = math.sqrt(dx**2 + dy**2)
+    #     #     if magnitude != 0:
+    #     #         app.puckVelocityX = (dx / magnitude) * app.aiSpeed * 3 * -1
+    #     #         app.puckVelocityY = (dy / magnitude) * app.aiSpeed * 3 * -1
+
+    #     # app.lastHitTime = time.time()
+# }
+
+def backOff(app):
+    app.aiY -= 30
 
 def main():
     runApp()
