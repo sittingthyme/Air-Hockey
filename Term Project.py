@@ -7,6 +7,8 @@ import time
 def onAppStart(app):
     app.width = 600
     app.height = 800
+    puck = Image.open('court.webp')
+    app.court = CMUImage(puck.crop((220, 100, 820, 900)))
     app.gameStart = False
 
     app.userX = 300
@@ -14,13 +16,17 @@ def onAppStart(app):
     app.userSpeed = 0
     app.targetX = app.userX
     app.targetY = app.userY
-    app.userTurn = True
 
     app.aiX = 300
     app.aiY = 200
     app.aiSpeed = 10
     app.aiMovementSpeed = 0 
     app.aiTargetX = app.aiX 
+    app.aiLeftX = 150
+    app.aiLeftY = 200
+
+    app.aiRightX = 450
+    app.aiRightY = 200
 
     app.puckX = 300
     app.puckY = 400
@@ -74,25 +80,30 @@ def redrawAll(app):
         drawLabel('Play Again', 300, 450, size=20)
         drawRect(225, 415, 150, 75, fill=None, border='black')
     else:
-        # if app.classic:
-        drawRect(0, 0, 800, 800)
-        drawLabel(str(app.userScore), 560, 440, size=50, fill='white')
-        drawLabel(str(app.aiScore), 560, 360, size=50, fill='white')
-        drawLine(10, 10, 10, 790, fill='cyan', lineWidth=10)
-        drawLine(590, 10, 590, 790, fill='cyan', lineWidth=8)
-        drawLine(10, 10, 200, 10, fill='cyan', lineWidth=8)
-        drawLine(590, 10, 400, 10, fill='cyan', lineWidth=8)
-        drawLine(10, 790, 200, 790, fill='cyan', lineWidth=8)
-        drawLine(590, 790, 400, 790, fill='cyan', lineWidth=8)
-        drawLine(10, 400, 590, 400, fill='cyan')
-        drawCircle(300, 400, 75, fill=None, border='cyan')
-        drawCircle(app.userX, app.userY, 50, fill='blue')
-
-        drawCircle(app.userX, app.userY, 25, fill='blue', border='black')
+        
+        drawImage(app.court, 0, 0, width=600, height=800)
+        drawLabel(str(app.userScore), 550, 440, size=50, fill='white')
+        drawLabel(str(app.aiScore), 550, 360, size=50, fill='white')
         drawCircle(app.puckX, app.puckY, app.puckRadius, fill='red')
+        
+        if app.classic:
+            drawCircle(app.userX, app.userY, 50, fill='blue')
+            drawCircle(app.userX, app.userY, 25, fill='blue', border='black')
+            drawCircle(app.aiX, app.aiY, 50, fill='green')
+            drawCircle(app.aiX, app.aiY, 25, fill='green', border='black')
+            
+        if app.squareMode:
+            drawRect(app.userX, app.userY, 100, 100, fill='blue', align='center')
+            drawRect(app.aiX, app.aiY, 100, 100, fill='green', align='center')
 
-        drawCircle(app.aiX, app.aiY, 50, fill='green')
-        drawCircle(app.aiX, app.aiY, 25, fill='green', border='black')
+        if app.twoPlayer:
+            drawCircle(app.userX, app.userY, 50, fill='blue')
+            drawCircle(app.userX, app.userY, 25, fill='blue', border='black')
+            drawCircle(app.aiLeftX, app.aiLeftY, 50, fill='green')
+            drawCircle(app.aiLeftX, app.aiLeftY, 25, fill='green', border='black') 
+            drawCircle(app.aiRightX, app.aiRightY, 50, fill='green')
+            drawCircle(app.aiRightX, app.aiRightY, 25, fill='green', border='black') 
+        
         if app.pause:
             drawLabel('SCORE!!!', 300, 200, size=80, fill='white')
             drawLabel(f'Game resumes in {str(app.counter)}', 300, 400, size=50, fill='white')
@@ -101,9 +112,6 @@ def redrawAll(app):
 
 def onMousePress(app, mouseX, mouseY):
     if not app.gameStart:
-        if (app.easySelected or app.medSelected or app.hardSelected) and (225 <= mouseX <= 375) and (600 <= mouseY <= 675):
-            app.gameStart = True
-            startGame(app)
         if (75 <= mouseX <= 125) & (495 <= mouseY <= 505):
             app.easySelected = True
             app.medSelected = False
@@ -122,6 +130,18 @@ def onMousePress(app, mouseX, mouseY):
             app.hardSelected = True
             app.aiSpeed = 10
             app.aiMovementSpeed = 6
+        if (app.easySelected or app.medSelected or app.hardSelected) and (225 <= mouseX <= 375) and (600 <= mouseY <= 675):
+            app.gameStart = True
+            app.classic = True
+            startGame(app)
+        if (app.easySelected or app.medSelected or app.hardSelected) and (50 <= mouseX <= 200) and (600 <= mouseY <= 675):
+            app.gameStart = True
+            app.squareMode = True
+            startGame(app)
+        if (app.easySelected or app.medSelected or app.hardSelected) and (400 <= mouseX <= 550) and (600 <= mouseY <= 675):
+            app.gameStart = True
+            app.twoPlayer = True
+            startGame(app)
         
     if app.gameEnd and (225 <= mouseX <= 375) and (415 <= mouseY <= 490):
         app.gameStart = False
@@ -157,8 +177,14 @@ def onStep(app):
         app.userX += dx * 0.5
         app.userY += dy * 0.5
 
-        moveAIPaddle(app)
-        checkAICollision(app)
+        if app.classic or app.squareMode:
+            moveAIPaddle(app)
+            checkAICollision(app)
+        else:
+            moveLeftAI(app)
+            moveRightAI(app)
+            checkLeftAICollision(app)
+            checkRightAICollision(app)
         # if ((app.puckY - app.puckRadius <= 10) or (app.puckX - app.puckRadius <= 10) 
         #     or (app.puckX + app.puckRadius >= app.width - 10)):
         #     wait(app)
@@ -167,14 +193,55 @@ def onStep(app):
         app.puckY += app.puckVelocityY
         
         # Check collision between paddle and puck
-        distance = math.sqrt((app.userX - app.puckX)**2 + (app.userY - app.puckY)**2)
-        if distance < 75:
-            dx = app.puckX - app.userX
-            dy = app.puckY - app.userY
-            magnitude = math.sqrt(dx**2 + dy**2)
-            if magnitude != 0:
-                app.puckVelocityX = (dx / magnitude) * app.userSpeed * 3 
-                app.puckVelocityY = (dy / magnitude) * app.userSpeed * 3
+        if app.classic or app.twoPlayer:
+            distance = math.sqrt((app.userX - app.puckX)**2 + (app.userY - app.puckY)**2)
+            if distance < 75:
+                dx = app.puckX - app.userX
+                dy = app.puckY - app.userY
+                magnitude = math.sqrt(dx**2 + dy**2)
+                if magnitude != 0:
+                    app.puckVelocityX = (dx / magnitude) * app.userSpeed * 3 
+                    app.puckVelocityY = (dy / magnitude) * app.userSpeed * 3
+        elif app.squareMode:
+            strikerSize = 100  # Changed to 100
+            halfSize = strikerSize / 2  # Now 50
+            puckSize = 50
+
+            # User striker bounds
+            userLeft = app.userX - halfSize
+            userRight = app.userX + halfSize
+            userTop = app.userY - halfSize
+            userBottom = app.userY + halfSize
+
+            # Puck bounds
+            puckLeft = app.puckX - puckSize/2
+            puck_right = app.puckX + puckSize/2
+            puckTop = app.puckY - puckSize/2
+            puckBottom = app.puckY + puckSize/2
+
+            if (userLeft < puck_right and userRight > puckLeft and
+                userTop < puckBottom and userBottom > puckTop):
+                
+                dx = app.puckX - app.userX
+                dy = app.puckY - app.userY
+                magnitude = math.sqrt(dx**2 + dy**2)
+                
+                if magnitude != 0:
+                    app.puckVelocityX = (dx / magnitude) * app.userSpeed * 3
+                    app.puckVelocityY = (dy / magnitude) * app.userSpeed * 3
+
+                # Prevent sticking
+                if abs(dx) > abs(dy):
+                    collisionNormalX = 1 if dx > 0 else -1
+                    collisionNormalY = 0
+                else:
+                    collisionNormalX = 0
+                    collisionNormalY = 1 if dy > 0 else -1
+
+                overlap = strikerSize/2 + puckSize/2 - magnitude
+                if overlap > 0:
+                    app.puckX += collisionNormalX * overlap
+                    app.puckY += collisionNormalY * overlap
         
         # Handle puck collisions with walls
         if app.puckX - app.puckRadius <= 0:  # Left wall
@@ -210,6 +277,13 @@ def onStep(app):
         app.puckVelocityX *= 0.98
         app.puckVelocityY *= 0.98
 
+        maxSpeed = 40
+        puckSpeed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
+        if puckSpeed > maxSpeed:
+            scalingFactor = maxSpeed / puckSpeed
+            app.puckVelocityX *= scalingFactor
+            app.puckVelocityY *= scalingFactor
+
 def resetPuck(app):
     app.puckX = 300
     app.puckY = 400
@@ -232,163 +306,334 @@ def startGame(app):
     app.start = True
     app.stepsPerSecond = 1
 
+import math
+
 def moveAIPaddle(app):
-    # Increase base speed from 4 to 6
     aiSpeed = 6  
-    
+    predictionTime = 0.75  # Predict for 0.75 seconds
+
     if app.puckY <= app.height / 2:  # React only when the puck is on AI's side
-        # Add momentum prediction Amazon Q {
-        predictedPuckX = app.puckX + app.puckVelocityX * (
-            (app.aiY - app.puckY) / app.puckVelocityY if app.puckVelocityY != 0 else 0
-        )
-        
-        # If puck is moving fast, increase prediction distance
-        if abs(app.puckVelocityX) > 5 or abs(app.puckVelocityY) > 5:
-            predictedPuckX += app.puckVelocityX * 2
-        
-        predictedPuckX = max(50, min(550, predictedPuckX))  # Stay within bounds
-        # }
-        if not(predictedPuckX < 25 or predictedPuckX > 575):
+        # Calculate predicted X and Y positions in 0.75 seconds
+        predictedPuckX = app.puckX + app.puckVelocityX * predictionTime
+        predictedPuckY = app.puckY + app.puckVelocityY * predictionTime
+
+        # Predict if puck will hit the top wall (Y = 0)
+        if predictedPuckY < 0:
+            # Time to hit the wall
+            timeToWall = -app.puckY / app.puckVelocityY if app.puckVelocityY < 0 else 0
+            
+            # Predict position after hitting the wall
+            postBouncePuckX = app.puckX + app.puckVelocityX * timeToWall
+            postBouncePuckY = 0 + abs(app.puckVelocityY) * (predictionTime - timeToWall)
+            
+            # Clamp X to bounds (walls at X=0 and X=600)
+            if postBouncePuckX < 0:
+                postBouncePuckX = -postBouncePuckX
+            elif postBouncePuckX > 600:
+                postBouncePuckX = 600 - (postBouncePuckX - 600)
+            
+            # AI intercepts after the bounce
+            app.aiTargetX = postBouncePuckX
+            app.aiTargetY = postBouncePuckY - 50  # Move above the bounce point to intercept from top
+        else:
+            # Normal prediction
+            predictedPuckX = max(0, min(600, predictedPuckX))
+            predictedPuckY = max(0, predictedPuckY)
             app.aiTargetX = predictedPuckX
-            # More aggressive Y targeting
-            if app.puckY < app.height / 3:
-                app.aiTargetY = app.puckY + app.puckVelocityY * 2  # Anticipate movement
-            else:
-                app.aiTargetY = app.puckY
+            app.aiTargetY = predictedPuckY - 50  # Stay slightly above the puck
+            
     else:
-        # Faster return to defensive position
-        app.aiTargetX = app.width/2  # Center position instead of following puck
+        # Return to defensive position if the puck is not on AI's side
+        app.aiTargetX = app.width / 2
         app.aiTargetY = 150
 
     # Increase movement speed based on distance to target
     distanceToTarget = math.sqrt((app.aiTargetX - app.aiX)**2 + 
-                               (app.aiTargetY - app.aiY)**2)
+                                 (app.aiTargetY - app.aiY)**2)
     
-    # Boost speed when far from target
+    # Boost speed for large distances
     if distanceToTarget > 100:
-        aiSpeed = 8  # Extra speed when need to cover large distance
+        aiSpeed = 5
     
-    # Move AI paddle towards the target position with increased speed
+    # Move AI paddle towards target
     if app.aiX < app.aiTargetX:
-        app.aiX += min(aiSpeed, app.aiTargetX - app.aiX)  # Move right
+        app.aiX += min(aiSpeed, app.aiTargetX - app.aiX)
     elif app.aiX > app.aiTargetX:
-        app.aiX -= min(aiSpeed, app.aiX - app.aiTargetX)  # Move left
+        app.aiX -= min(aiSpeed, app.aiX - app.aiTargetX)
 
     if app.aiY < app.aiTargetY:
-        app.aiY += min(aiSpeed, app.aiTargetY - app.aiY)  # Move down
+        app.aiY += min(aiSpeed, app.aiTargetY - app.aiY)
     elif app.aiY > app.aiTargetY:
-        app.aiY -= min(aiSpeed, app.aiY - app.aiTargetY)  # Move up
+        app.aiY -= min(aiSpeed, app.aiY - app.aiTargetY)
 
-    # Keep AI paddle within bounds
-    app.aiX = max(50, min(550, app.aiX))  # X boundary
-    app.aiY = max(50, min(350, app.aiY))  # Y boundary
+    # Keep AI within bounds
+    app.aiX = max(0, min(600, app.aiX))
+    app.aiY = max(0, min(350, app.aiY))  # Assuming bottom bound for AI is Y=350
+
 
 
 
 #Amazon Q{
 def checkAICollision(app):
-    # Calculate distance between AI paddle and puck
-    distance = math.sqrt((app.aiX - app.puckX)**2 + (app.aiY - app.puckY)**2)
-    if distance < 75:  # Collision threshold (paddle radius + puck radius)
-        # Calculate collision normal
-        collisionNormalX = (app.puckX - app.aiX) / distance
-        collisionNormalY = (app.puckY - app.aiY) / distance
-
-        currentSpeed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
-
-        minSpeed = 8
-
-        if currentSpeed < 1 and app.puckX == 300 and app.puckY == 400:
-            app.puckVelocityX = collisionNormalX * minSpeed
-            app.puckVelocityY = collisionNormalY * minSpeed
-        else:
-        # Reflect puck velocity based on collision normal
-            dotProduct = (app.puckVelocityX * collisionNormalX +
-                        app.puckVelocityY * collisionNormalY)
-            reflectedVelocityX = app.puckVelocityX - 2 * dotProduct * collisionNormalX
-            reflectedVelocityY = app.puckVelocityY - 2 * dotProduct * collisionNormalY
-
-            speedMultiplier = 1.2
-            # newSpeed = math.sqrt(reflectedVelocityX**2 + reflectedVelocityY**2) * speedMultiplier
-            # if newSpeed > minSpeed:
-            #     speedMultiplier = minSpeed / newSpeed
-            app.puckVelocityX = reflectedVelocityX * speedMultiplier
-            app.puckVelocityY = reflectedVelocityY * speedMultiplier
+    if app.classic:
+        distance = math.sqrt((app.aiX - app.puckX)**2 + (app.aiY - app.puckY)**2)
+        if distance < 75:
+            collisionNormalX = (app.puckX - app.aiX) / distance
+            collisionNormalY = (app.puckY - app.aiY) / distance
+            dx = app.puckX - app.aiX
+            dy = app.puckY - app.aiY
+            magnitude = math.sqrt(dx**2 + dy**2)
+            if magnitude != 0:
+                app.puckVelocityX = (dx / magnitude) * app.aiSpeed * 3 
+                app.puckVelocityY = (dy / magnitude) * app.aiSpeed * 3
 
         # Offset puck slightly to prevent overlap after collision
-        overlap = 75 - distance
-        app.puckX += collisionNormalX * overlap * 0.5
-        app.puckY += collisionNormalY * overlap * 0.5
+            overlap = 75 - distance
+            app.puckX += collisionNormalX * overlap * 0.5
+            app.puckY += collisionNormalY * overlap * 0.5
+    elif app.squareMode:
+        strikerSize = 100  # Changed to 100
+        halfSize = strikerSize / 2  # Now 50
+        puckSize = 50
 
-    # distance = math.sqrt((app.aiX - app.puckX)**2 + (app.aiY - app.puckY)**2)
-    # if distance < 75 and app.lastHitTime + 0.1 < time.time():
-    #     # Calculate the angle of collision
-    #     relativeX = app.puckX - app.aiX
-    #     relativeY = app.puckY - app.aiY
+        # AI striker bounds
+        aiLeft = app.aiX - halfSize
+        aiRight = app.aiX + halfSize
+        aiTop = app.aiY - halfSize
+        aiBottom = app.aiY + halfSize
+
+        # Puck bounds
+        puckLeft = app.puckX - puckSize/2
+        puckRight = app.puckX + puckSize/2
+        puckTop = app.puckY - puckSize/2
+        puckBottom = app.puckY + puckSize/2
+
+        if (aiLeft < puckRight and aiRight > puckLeft and
+            aiTop < puckBottom and aiBottom > puckTop):
+            
+            dx = app.puckX - app.aiX
+            dy = app.puckY - app.aiY
+            
+            # Determine which side of the square was hit
+            if abs(dx) > abs(dy):
+                collisionNormalX = 1 if dx > 0 else -1
+                collisionNormalY = 0
+            else:
+                collisionNormalX = 0
+                collisionNormalY = 1 if dy > 0 else -1
+
+            magnitude = math.sqrt(dx**2 + dy**2)
+            if magnitude != 0:
+                app.puckVelocityX = (dx / magnitude) * app.aiSpeed * 3
+                app.puckVelocityY = (dy / magnitude) * app.aiSpeed * 3
+
+            # Prevent sticking
+            overlap = strikerSize/2 + puckSize/2 - magnitude
+            if overlap > 0:
+                app.puckX += collisionNormalX * overlap
+                app.puckY += collisionNormalY * overlap
+
+def moveLeftAI(app):
+    aiSpeed = 6  
+    predictionTime = 0.75 
+    if app.puckY <= app.height / 2:
         
-    #     # Calculate angle between puck and paddle center
-    #     collisionAngle = math.atan2(relativeY, relativeX)
-    #     # Determine if it's a side hit or front hit
-    #     # Convert angle to degrees for easier comparison
-    #     angleDegrees = math.degrees(collisionAngle)
-    #     print(angleDegrees)
-    #     if angleDegrees == 0 or angleDegrees == 180:
-    #         speed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
-    #         app.puckVelocityX = math.cos(random.randint(10, 30)) * speed * 1.2
-    #         app.puckVelocityY = math.sin(random.randint(10, 30)) * speed * 1.2
-    #         # backOff(app)
-    #     # elif 0 < angleDegrees < 180:
-    #     #     dx = app.puckX - app.userX
-    #     #     dy = app.puckY - app.userY
-    #     #     magnitude = math.sqrt(dx**2 + dy**2)
-    #     #     if magnitude != 0:
-    #     #         app.puckVelocityX = (dx / magnitude) * app.aiSpeed * 3 
-    #     #         app.puckVelocityY = (dy / magnitude) * app.aiSpeed * 3
-    #     #     # backOff(app) 
-    #     elif -45 <= angleDegrees <= 45 or 135 <= angleDegrees <= 225:
-    #         # Side hit - bounce based on collision angle
-    #         print('Hit the side')
-    #         speed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
-    #         if speed == 0:
-    #             speed = app.aiSpeed
+        predictedPuckX = app.puckX + app.puckVelocityX * predictionTime
+        predictedPuckY = app.puckY + app.puckVelocityY * predictionTime
+        if predictedPuckX < 300:
+        # Predict if puck will hit the top wall (Y = 0)
+            if predictedPuckY < 0:
+                # Time to hit the wall
+                timeToWall = -app.puckY / app.puckVelocityY if app.puckVelocityY < 0 else 0
                 
-    #         # Calculate new velocity based on collision angle
-    #         app.puckVelocityX = math.cos(random.randint(10, 30)) * speed * 1.2
-    #         app.puckVelocityY = math.sin(random.randint(10, 30)) * speed * 1.2
-    #         # backOff(app)
-    #     else:
-    #         #Front hit - aim towards goal
-    #         if app.puckY <= app.height / 2:
-    #             goalCenterX = app.width / 2 + random.uniform(-50, 50)
-            
-    #         goalCenterY = app.height - app.goalHeight
-            
-    #         dx = goalCenterX - app.puckX
-    #         dy = goalCenterY - app.puckY
-            
-    #         magnitude = math.sqrt(dx**2 + dy**2)
-    #         if magnitude != 0:
-    #             dx /= magnitude
-    #             dy /= magnitude
-            
-    #         # Vary speed based on distance from paddle center
-    #         hitAccuracy = 1 - (distance / 75)  # 1 at center, 0 at edge
-    #         speed = app.aiSpeed * (3 + hitAccuracy)
-            
-    #         app.puckVelocityX = dx * speed
-    #         app.puckVelocityY = dy * speed
-    #     #     dx = app.puckX - app.userX
-    #     #     dy = app.puckY - app.userY
-    #     #     magnitude = math.sqrt(dx**2 + dy**2)
-    #     #     if magnitude != 0:
-    #     #         app.puckVelocityX = (dx / magnitude) * app.aiSpeed * 3 * -1
-    #     #         app.puckVelocityY = (dy / magnitude) * app.aiSpeed * 3 * -1
+                # Predict position after hitting the wall
+                postBouncePuckX = app.puckX + app.puckVelocityX * timeToWall
+                postBouncePuckY = 0 + abs(app.puckVelocityY) * (predictionTime - timeToWall)
+                
+                # Clamp X to bounds (walls at X=0 and X=600)
+                if postBouncePuckX < 0:
+                    postBouncePuckX = -postBouncePuckX
+                elif postBouncePuckX > 600:
+                    postBouncePuckX = 600 - (postBouncePuckX - 600)
+                
+                # AI intercepts after the bounce
+                app.aiTargetLeftX = postBouncePuckX
+                app.aiTargetLeftY = postBouncePuckY - 50  # Move above the bounce point to intercept from top
+            else:
+                # Normal prediction
+                predictedPuckX = max(0, min(600, predictedPuckX))
+                predictedPuckY = max(0, predictedPuckY)
+                app.aiTargetLeftX = predictedPuckX
+                app.aiTargetLeftY = predictedPuckY - 50  # Stay slightly above the puck
+                
+        else:
+            # Return to defensive position if the puck is not on AI's side
+            app.aiTargetLeftX = 150
+            app.aiTargetLeftY = 150
 
-    #     # app.lastHitTime = time.time()
-# }
+        # Increase movement speed based on distance to target
+        distanceToTarget = math.sqrt((app.aiTargetLeftX - app.aiLeftX)**2 + 
+                                    (app.aiTargetLeftY - app.aiLeftY)**2)
+        
+        # Boost speed for large distances
+        if distanceToTarget > 100:
+            aiSpeed = 5
+        
+        # Move AI paddle towards target
+        if app.aiLeftX < app.aiTargetLeftX:
+            app.aiLeftX += min(aiSpeed, app.aiTargetLeftX - app.aiLeftX)
+        elif app.aiLeftX > app.aiTargetLeftX:
+            app.aiLeftX -= min(aiSpeed, app.aiLeftX - app.aiTargetLeftX)
 
-def backOff(app):
-    app.aiY -= 30
+        if app.aiLeftY < app.aiTargetLeftY:
+            app.aiLeftY += min(aiSpeed, app.aiTargetLeftY - app.aiLeftY)
+        elif app.aiLeftY > app.aiTargetLeftY:
+            app.aiLeftY -= min(aiSpeed, app.aiLeftY - app.aiTargetLeftY)
+
+        # Keep AI within bounds
+        app.aiLeftX = max(0, min(600, app.aiLeftX))
+        app.aiLeftY = max(0, min(350, app.aiLeftY))
+
+def moveRightAI(app):
+    aiSpeed = 6  
+    predictionTime = 0.75 
+    if app.puckY <= app.height / 2:
+        
+        predictedPuckX = app.puckX + app.puckVelocityX * predictionTime
+        predictedPuckY = app.puckY + app.puckVelocityY * predictionTime
+        if predictedPuckX >= 300:
+        # Predict if puck will hit the top wall (Y = 0)
+            if predictedPuckY < 0:
+                # Time to hit the wall
+                timeToWall = -app.puckY / app.puckVelocityY if app.puckVelocityY < 0 else 0
+                
+                # Predict position after hitting the wall
+                postBouncePuckX = app.puckX + app.puckVelocityX * timeToWall
+                postBouncePuckY = 0 + abs(app.puckVelocityY) * (predictionTime - timeToWall)
+                
+                # Clamp X to bounds (walls at X=0 and X=600)
+                if postBouncePuckX < 0:
+                    postBouncePuckX = -postBouncePuckX
+                elif postBouncePuckX > 600:
+                    postBouncePuckX = 600 - (postBouncePuckX - 600)
+                
+                # AI intercepts after the bounce
+                app.aiTargetRightX = postBouncePuckX
+                app.aiTargetRightY = postBouncePuckY - 50  # Move above the bounce point to intercept from top
+            else:
+                # Normal prediction
+                predictedPuckX = max(0, min(600, predictedPuckX))
+                predictedPuckY = max(0, predictedPuckY)
+                app.aiTargetRightX = predictedPuckX
+                app.aiTargetRightY = predictedPuckY - 50  # Stay slightly above the puck
+                
+        else:
+            # Return to defensive position if the puck is not on AI's side
+            app.aiTargetRightX = 450
+            app.aiTargetRightY = 150
+
+        # Increase movement speed based on distance to target
+        distanceToTarget = math.sqrt((app.aiTargetRightX - app.aiRightX)**2 + 
+                                    (app.aiTargetRightY - app.aiRightY)**2)
+        
+        # Boost speed for large distances
+        if distanceToTarget > 100:
+            aiSpeed = 5
+        
+        # Move AI paddle towards target
+        if app.aiRightX < app.aiTargetRightX:
+            app.aiRightX += min(aiSpeed, app.aiTargetRightX - app.aiRightX)
+        elif app.aiRightX > app.aiTargetRightX:
+            app.aiRightX -= min(aiSpeed, app.aiRightX - app.aiTargetRightX)
+
+        if app.aiRightY < app.aiTargetRightY:
+            app.aiRightY += min(aiSpeed, app.aiTargetRightY - app.aiRightY)
+        elif app.aiRightY > app.aiTargetRightY:
+            app.aiRightY -= min(aiSpeed, app.aiRightY - app.aiTargetRightY)
+
+        # Keep AI within bounds
+        app.aiRightX = max(0, min(600, app.aiRightX))
+        app.aiRightY = max(0, min(350, app.aiRightY))
+
+def checkLeftAICollision(app):
+    strikerSize = 100
+    halfSize = strikerSize / 2
+    puckSize = 50
+
+    # Left AI striker bounds
+    aiLeft = app.aiLeftX - halfSize
+    aiRight = app.aiLeftX + halfSize
+    aiTop = app.aiLeftY - halfSize
+    aiBottom = app.aiLeftY + halfSize
+
+    # Puck bounds
+    puckLeft = app.puckX - puckSize/2
+    puckRight = app.puckX + puckSize/2
+    puckTop = app.puckY - puckSize/2
+    puckBottom = app.puckY + puckSize/2
+
+    if (aiLeft < puckRight and aiRight > puckLeft and
+        aiTop < puckBottom and aiBottom > puckTop):
+        
+        dx = app.puckX - app.aiLeftX
+        dy = app.puckY - app.aiLeftY
+        
+        if abs(dx) > abs(dy):
+            collisionNormalX = 1 if dx > 0 else -1
+            collisionNormalY = 0
+        else:
+            collisionNormalX = 0
+            collisionNormalY = 1 if dy > 0 else -1
+
+        magnitude = math.sqrt(dx**2 + dy**2)
+        if magnitude != 0:
+            app.puckVelocityX = (dx / magnitude) * app.aiSpeed * 3
+            app.puckVelocityY = (dy / magnitude) * app.aiSpeed * 3
+
+        overlap = strikerSize/2 + puckSize/2 - magnitude
+        if overlap > 0:
+            app.puckX += collisionNormalX * overlap
+            app.puckY += collisionNormalY * overlap
+
+def checkRightAICollision(app):
+    strikerSize = 100
+    halfSize = strikerSize / 2
+    puckSize = 50
+
+    # Right AI striker bounds
+    aiLeft = app.aiRightX - halfSize
+    aiRight = app.aiRightX + halfSize
+    aiTop = app.aiRightY - halfSize
+    aiBottom = app.aiRightY + halfSize
+
+    # Puck bounds
+    puckLeft = app.puckX - puckSize/2
+    puckRight = app.puckX + puckSize/2
+    puckTop = app.puckY - puckSize/2
+    puckBottom = app.puckY + puckSize/2
+
+    if (aiLeft < puckRight and aiRight > puckLeft and
+        aiTop < puckBottom and aiBottom > puckTop):
+        
+        dx = app.puckX - app.aiRightX
+        dy = app.puckY - app.aiRightY
+        
+        if abs(dx) > abs(dy):
+            collisionNormalX = 1 if dx > 0 else -1
+            collisionNormalY = 0
+        else:
+            collisionNormalX = 0
+            collisionNormalY = 1 if dy > 0 else -1
+
+        magnitude = math.sqrt(dx**2 + dy**2)
+        if magnitude != 0:
+            app.puckVelocityX = (dx / magnitude) * app.aiSpeed * 3
+            app.puckVelocityY = (dy / magnitude) * app.aiSpeed * 3
+
+        overlap = strikerSize/2 + puckSize/2 - magnitude
+        if overlap > 0:
+            app.puckX += collisionNormalX * overlap
+            app.puckY += collisionNormalY * overlap
 
 def main():
     runApp()
