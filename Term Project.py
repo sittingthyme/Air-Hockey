@@ -7,6 +7,7 @@ import time
 def onAppStart(app):
     app.width = 600
     app.height = 800
+    app.backgroundPic = CMUImage(Image.open('background.jpg'))
     puck = Image.open('court.webp')
     app.court = CMUImage(puck.crop((220, 100, 820, 900)))
     app.gameStart = False
@@ -60,18 +61,28 @@ def onAppStart(app):
     app.squareMode = False
     app.twoPlayer = False
 
+    app.classicFill = None
+    app.squareFill = None
+    app.twoPlayerFill = None
+
+    app.borderWidth = 2
+    app.increasing = True
+
 def redrawAll(app):
     if not app.gameStart:
-        drawLabel("Single Player Air Hockey", 300, 200, size=40)
-        drawLabel('Easy', 100, 500, size=40, bold=app.easySelected)
-        drawLabel('Medium', 300, 500, size=40, bold=app.medSelected)
-        drawLabel('Hard', 500, 500, size=40, bold=app.hardSelected)
-        drawLabel('Classic', 300, 635, size=30)
-        drawRect(225, 600, 150, 75, fill=None, border='black')
-        drawLabel('Square Mode', 125, 635, size=20)
-        drawRect(50, 600, 150, 75, fill=None, border='black')
-        drawLabel('1 vs 2', 475, 635, size=30)
-        drawRect(400, 600, 150, 75, fill=None, border='black')
+        drawImage(app.backgroundPic, 0, 0, width=600, height=800)
+        drawLabel("Air Hockey", 300, 200, font='Snap ITC', size=60, fill='white')
+        drawLabel('Choose Difficulty', 300, 415, font='Trebuchet MS', size=32, fill='white')
+        drawLabel('Easy', 150, 490, size=35, font='Stencil', fill='mediumseagreen', bold=app.easySelected)
+        drawLabel('Medium', 300, 490, size=35, font='Stencil', fill='orange', bold=app.medSelected)
+        drawLabel('Hard', 450, 490, size=35, font='Stencil', fill='firebrick', bold=app.hardSelected)
+        drawLabel('Choose Mode', 300, 615, size=30, font='Trebuchet MS', fill='white')
+        drawLabel('Classic', 300, 700, size=30, font='Bauhaus 93', fill='dodgerblue')
+        drawRect(225, 665, 150, 75, fill=app.classicFill, border='dodgerblue', opacity=30)
+        drawLabel('Square Mode', 125, 700, size=20, font='Bauhaus 93', fill='peachpuff')
+        drawRect(50, 665, 150, 75, fill=app.squareFill, border='peachpuff', opacity=30)
+        drawLabel('1 vs 2', 475, 700, size=30, font='Bauhaus 93', fill='magenta')
+        drawRect(400, 665, 150, 75, fill=app.twoPlayerFill, border='magenta', opacity=30)
     elif app.gameEnd:
         if app.userScore > app.aiScore:
             drawLabel('You Won!', 300, 200, size=40)
@@ -84,7 +95,7 @@ def redrawAll(app):
         drawImage(app.court, 0, 0, width=600, height=800)
         drawLabel(str(app.userScore), 550, 440, size=50, fill='white')
         drawLabel(str(app.aiScore), 550, 360, size=50, fill='white')
-        drawCircle(app.puckX, app.puckY, app.puckRadius, fill='red')
+        drawPulsingBorder(app)
         
         if app.classic:
             drawCircle(app.userX, app.userY, 50, fill='blue')
@@ -110,35 +121,46 @@ def redrawAll(app):
         if app.start:
             drawLabel(f'Game starts in {str(app.counter)}', 300, 400, size=50, fill='white')
 
+
+def drawPulsingBorder(app):
+    # Outer glow
+    drawCircle(app.puckX, app.puckY, app.puckRadius + 4, 
+              fill=None, border='red', 
+              borderWidth=app.borderWidth)
+    # Main circle
+    drawCircle(app.puckX, app.puckY,  app.puckRadius, 
+              fill=None, border='red', borderWidth=3)
+
+
 def onMousePress(app, mouseX, mouseY):
     if not app.gameStart:
-        if (75 <= mouseX <= 125) & (495 <= mouseY <= 505):
+        if (125 <= mouseX <= 175) & (480 <= mouseY <= 500):
             app.easySelected = True
             app.medSelected = False
             app.hardSelected = False
             app.aiSpeed = 4
             app.aiMovementSpeed = 4
-        if (275 <= mouseX <= 325) & (495 <= mouseY <= 505):
+        if (275 <= mouseX <= 325) & (480 <= mouseY <= 500):
             app.easySelected = False
             app.medSelected = True
             app.hardSelected = False
             app.aiSpeed = 7
             app.aiMovementSpeed = 5
-        if (475 <= mouseX <= 525) & (495 <= mouseY <= 505):
+        if (425 <= mouseX <= 475) & (480 <= mouseY <= 500):
             app.easySelected = False
             app.medSelected = False
             app.hardSelected = True
             app.aiSpeed = 10
             app.aiMovementSpeed = 6
-        if (app.easySelected or app.medSelected or app.hardSelected) and (225 <= mouseX <= 375) and (600 <= mouseY <= 675):
+        if (app.easySelected or app.medSelected or app.hardSelected) and (225 <= mouseX <= 375) and (665<= mouseY <= 740):
             app.gameStart = True
             app.classic = True
             startGame(app)
-        if (app.easySelected or app.medSelected or app.hardSelected) and (50 <= mouseX <= 200) and (600 <= mouseY <= 675):
+        if (app.easySelected or app.medSelected or app.hardSelected) and (50 <= mouseX <= 200) and (665<= mouseY <= 740):
             app.gameStart = True
             app.squareMode = True
             startGame(app)
-        if (app.easySelected or app.medSelected or app.hardSelected) and (400 <= mouseX <= 550) and (600 <= mouseY <= 675):
+        if (app.easySelected or app.medSelected or app.hardSelected) and (400 <= mouseX <= 550) and (665<= mouseY <= 740):
             app.gameStart = True
             app.twoPlayer = True
             startGame(app)
@@ -149,7 +171,25 @@ def onMousePress(app, mouseX, mouseY):
         startGame(app)
         
 def onMouseMove(app, mouseX, mouseY):
-    if app.gameStart:
+    if not app.gameStart:
+        if (400 <= mouseX <= 550) and (665<= mouseY <= 740):
+            app.twoPlayerFill = 'white'
+            app.squareFill = None
+            app.classicFill = None
+        elif (50 <= mouseX <= 200) and (665<= mouseY <= 740):
+            app.squareFill = 'white'
+            app.twoPlayerFill = None
+            app.classicFill = None
+        elif (225 <= mouseX <= 375) and (665<= mouseY <= 740):
+            app.classicFill = 'white'
+            app.twoPlayerFill = None
+            app.squareFill = None
+        else:
+            app.twoPlayerFill = None
+            app.squareFill = None
+            app.classicFill = None
+
+    else:
         app.targetX = max(60, min(540, mouseX))
         app.targetY = max(400 + 50, min(740, mouseY))
 
@@ -170,6 +210,14 @@ def onStep(app):
             
 
     if app.gameStart and not app.pause and not app.start:
+        if app.increasing:
+            app.borderWidth += 0.2
+            if app.borderWidth >= 8:
+                app.increasing = False
+        else:
+            app.borderWidth -= 0.2
+            if app.borderWidth <= 2:
+                app.increasing = True
         # Update user paddle position
         dx = app.targetX - app.userX
         dy = app.targetY - app.userY
