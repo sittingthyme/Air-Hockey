@@ -82,16 +82,13 @@ def onAppStart(app):
 #Amazon Q{
 def loadHighScore():
     try:
-        # 'r' opens file for reading
         with open('highscore.txt', 'r') as file:
             return int(file.read())
     except FileNotFoundError:
-        # If file doesn't exist, create it with initial score of 0
         saveHighScore(0)
         return 0
 
 def saveHighScore(score):
-    # 'w' opens file for writing (creates new file or overwrites existing)
     with open('highscore.txt', 'w') as file:
         file.write(str(score))
 # } Amazon Q
@@ -120,7 +117,7 @@ def redrawAll(app):
         drawImage(app.courtLine, 400, 0, width = 200, height=10)
         drawImage(app.courtLine, 0, 790, width = 200, height=10)
         drawImage(app.courtLine, 400, 790, width = 200, height=10)
-        drawImage(app.courtLine, 0, 400, width = 600, height=10)
+        drawImage(app.courtLine, 0, 395, width = 600, height=10)
         drawLabel(str(app.userScore), 550, 440, size=50, fill='white')
         drawLabel(str(app.aiScore), 550, 360, size=50, fill='white')
         drawCircle(app.puckX, app.puckY, 25, fill=None, border='red', borderWidth=5)
@@ -436,7 +433,7 @@ def startGame(app):
 
 
 def moveAIPaddle(app):
-    aiSpeed = 5  
+    aiSpeed = 6 
     predictionTime = 0.75  
     defaultX = 300
     defaultY = 150
@@ -485,7 +482,7 @@ def moveAIPaddle(app):
     elif distanceToTarget > 50:
         aiSpeed = 7
     else:
-        aiSpeed = 5  
+        aiSpeed = 6  
     
     aiSpeed *= app.aiMovementSpeed
     
@@ -500,8 +497,12 @@ def moveAIPaddle(app):
     app.aiX = max(0, min(600, app.aiX))
     app.aiY = max(0, min(350, app.aiY))  
 
-
-
+def onKeyPress(app, key):
+    if key == 'q':
+        app.gameStart = False
+        app.classic = False
+        app.squareMode = False
+        app.twoPlayer = False
 
 #Amazon Q{
 def checkAICollision(app):
@@ -565,7 +566,7 @@ def checkAICollision(app):
             magnitude = math.sqrt(dx**2 + dy**2)
             
             currentSpeed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
-            bounciness = 0.5  
+            bounciness = 0.9  
             
             if ((app.puckVelocityX != 0 and app.puckVelocityY != 0) or \
             (app.puckVelocityX == 0 and app.puckVelocityY != 0) or \
@@ -600,7 +601,7 @@ def checkAICollision(app):
 
 #same as moveAIPaddle(app)
 def moveLeftAI(app):
-    aiSpeed = 5  
+    aiSpeed = 6  
     predictionTime = 0.75 
     defaultX = 150
     defaultY = 150
@@ -648,7 +649,7 @@ def moveLeftAI(app):
     elif distanceToTarget > 50:
         aiSpeed = 7
     else:
-        aiSpeed = 5  
+        aiSpeed = 6  
     
     aiSpeed *= app.aiMovementSpeed
 
@@ -665,7 +666,7 @@ def moveLeftAI(app):
 
 #same as moveAIPaddle(app)
 def moveRightAI(app):
-    aiSpeed = 5  
+    aiSpeed = 6  
     predictionTime = 0.75 
     defaultX = 450
     defaultY = 150
@@ -713,7 +714,7 @@ def moveRightAI(app):
     elif distanceToTarget > 50:
         aiSpeed = 7
     else:
-        aiSpeed = 5
+        aiSpeed = 6
     
     aiSpeed *= app.aiMovementSpeed
 
