@@ -79,7 +79,7 @@ def onAppStart(app):
     app.increasing = True
 
     app.reactionDelay = 0
-#Amazon Q{
+
 def loadHighScore():
     try:
         with open('highscore.txt', 'r') as file:
@@ -91,7 +91,7 @@ def loadHighScore():
 def saveHighScore(score):
     with open('highscore.txt', 'w') as file:
         file.write(str(score))
-# } Amazon Q
+
 
 def redrawAll(app):
     if not app.gameStart:
@@ -246,7 +246,7 @@ def onStep(app):
             checkLeftAICollision(app)
             checkRightAICollision(app)
 
-        #Amazon Q{
+       
         dx = app.targetX - app.userX
         dy = app.targetY - app.userY
         app.userSpeed = math.sqrt(dx**2 + dy**2) * 0.2
@@ -271,7 +271,7 @@ def onStep(app):
               
                 currentSpeed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
                 bounciness = 3  
-            #} Amazon Q    
+              
                 if ((app.puckVelocityX != 0 and app.puckVelocityY != 0) or \
                 (app.puckVelocityX == 0 and app.puckVelocityY != 0) or \
                 (app.puckVelocityX != 0 and app.puckVelocityY == 0)) \
@@ -290,11 +290,11 @@ def onStep(app):
                     app.puckVelocityX = normalX * currentSpeed * bounciness
                     app.puckVelocityY = normalY * currentSpeed * bounciness
         
-                #Amazon Q {
+            
                 overlap = 75 - distance
                 app.puckX += normalX * overlap
                 app.puckY += normalY * overlap
-                # } Amazon Q
+               
         else:
             strikerSize = 100  
             halfSize = strikerSize / 2  
@@ -319,7 +319,7 @@ def onStep(app):
                 
                 currentSpeed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
                 bounciness = 3  
-                # }Amazon Q
+              
 
                 if ((app.puckVelocityX != 0 and app.puckVelocityY != 0) or \
                 (app.puckVelocityX == 0 and app.puckVelocityY != 0) or \
@@ -339,7 +339,7 @@ def onStep(app):
                     app.puckVelocityX = (dx / magnitude) * currentSpeed * bounciness
                     app.puckVelocityY = (dy / magnitude) * currentSpeed * bounciness
                 
-                #Amazon Q { 
+              
                 if abs(dx) > abs(dy):
                     collisionNormalX = 1 if dx > 0 else -1
                     collisionNormalY = 0
@@ -351,8 +351,7 @@ def onStep(app):
                 if overlap > 0:
                     app.puckX += collisionNormalX * overlap
                     app.puckY += collisionNormalY * overlap
-                # } Amazon Q
-
+               
         if app.puckX - app.puckRadius <= 0:  
             app.puckX = app.puckRadius  # Amazon Q
             app.puckVelocityX *= -1 
@@ -388,14 +387,14 @@ def onStep(app):
         app.puckVelocityX *= 0.98
         app.puckVelocityY *= 0.98
 
-        # Amazon Q {
+        
         maxSpeed = 35
         puckSpeed = math.sqrt(app.puckVelocityX**2 + app.puckVelocityY**2)
         if puckSpeed > maxSpeed:
             scalingFactor = maxSpeed / puckSpeed
             app.puckVelocityX *= scalingFactor
             app.puckVelocityY *= scalingFactor
-        # } Amazon Q
+       
 
 def resetPuck(app):
     app.puckX = 300
@@ -504,7 +503,7 @@ def onKeyPress(app, key):
         app.squareMode = False
         app.twoPlayer = False
 
-#Amazon Q{
+
 def checkAICollision(app):
     if app.classic:
         dx = app.puckX - app.aiX
@@ -597,7 +596,7 @@ def checkAICollision(app):
             if overlap > 0:
                 app.puckX += collisionNormalX * overlap
                 app.puckY += collisionNormalY * overlap
-# } Amazon Q
+
 
 #same as moveAIPaddle(app)
 def moveLeftAI(app):
